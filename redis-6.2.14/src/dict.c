@@ -131,11 +131,14 @@ int _dictInit(dict *d, dictType *type,
 int dictResize(dict *d)
 {
     unsigned long minimal;
-
+    // 如果正在做bgsze或bgrewriteaof或rehash，则返回错误
     if (dict_can_resize != DICT_RESIZE_ENABLE || dictIsRehashing(d)) return DICT_ERR;
+    // 获取used，也就是entry个数
     minimal = d->ht[0].used;
+    // 如果used小于4，则重置为4
     if (minimal < DICT_HT_INITIAL_SIZE)
         minimal = DICT_HT_INITIAL_SIZE;
+    // 重置大小为minimal，本质上是重置为大于等于minimal的最小2的n次方
     return dictExpand(d, minimal);
 }
 
@@ -146,22 +149,27 @@ int _dictExpand(dict *d, unsigned long size, int* malloc_failed)
 {
     if (malloc_failed) *malloc_failed = 0;
 
-    /* the size is invalid if it is smaller than the number of
-     * elements already inside the hash table */
+    // 如果当前entry数量超过了要申请的size大小，或者正在rehash，那么直接报错
     if (dictIsRehashing(d) || d->ht[0].used > size)
         return DICT_ERR;
 
-    dictht n; /* the new hash table */
+    // 声明新的hash table
+    dictht n;
+
+    // 实际大小，也就是大于等于size的最小2的n次方
     unsigned long realsize = _dictNextPower(size);
 
     /* Detect overflows */
+    // 如果realsize小于size，或者realsize * sizeof(dictEntry*) < realsize，那么直接返回错误
     if (realsize < size || realsize * sizeof(dictEntry*) < realsize)
         return DICT_ERR;
 
     /* Rehashing to the same table size is not useful. */
+    // 如果新的大小和当前的大小一样，那么直接返回错误
     if (realsize == d->ht[0].size) return DICT_ERR;
 
     /* Allocate the new hash table and initialize all pointers to NULL */
+    // 重置新的hash table大小和掩码
     n.size = realsize;
     n.sizemask = realsize-1;
     if (malloc_failed) {
@@ -170,17 +178,20 @@ int _dictExpand(dict *d, unsigned long size, int* malloc_failed)
         if (*malloc_failed)
             return DICT_ERR;
     } else
+      // 分配内存: size * entrySize
         n.table = zcalloc(realsize*sizeof(dictEntry*));
-
+    // 已使用的数量初始化为0
     n.used = 0;
 
     /* Is this the first initialization? If so it's not really a rehashing
      * we just set the first hash table so that it can accept keys. */
+    // 如果是第一次，则直接把n赋值给ht[0]即可
     if (d->ht[0].table == NULL) {
         d->ht[0] = n;
         return DICT_OK;
     }
 
+    // 否则，需要rehash，这里只需要把rehashidx置为0即可。每次增删改查都会触发rehash
     /* Prepare a second hash table for incremental rehashing */
     d->ht[1] = n;
     d->rehashidx = 0;
@@ -993,29 +1004,30 @@ static int dictTypeExpandAllowed(dict *d) {
 /* Expand the hash table if needed */
 static int _dictExpandIfNeeded(dict *d)
 {
-    /* Incremental rehashing already in progress. Return. */
+    /* 如果正在rehash，返回ok */
     if (dictIsRehashing(d)) return DICT_OK;
 
-    /* If the hash table is empty expand it to the initial size. */
+    /* 如果哈希表为空，则初始化哈希表为默认大小：4 */
     if (d->ht[0].size == 0) return dictExpand(d, DICT_HT_INITIAL_SIZE);
 
-    /* If we reached the 1:1 ratio, and we are allowed to resize the hash
-     * table (global setting) or we should avoid it but the ratio between
-     * elements/buckets is over the "safe" threshold, we resize doubling
-     * the number of buckets. */
+    /* 这里是检查能否一次性分配足够大的内存 */
     if (!dictTypeExpandAllowed(d))
         return DICT_OK;
+    /* 当负载因子(used/size)达到1以上，并且目前没有进行bgrewrite等子进程操作 */
+    /* 或者负载因子达到5以上，则进行dictExpand，也就是扩容 */
     if ((dict_can_resize == DICT_RESIZE_ENABLE &&
          d->ht[0].used >= d->ht[0].size) ||
         (dict_can_resize != DICT_RESIZE_FORBID &&
          d->ht[0].used / d->ht[0].size > dict_force_resize_ratio))
     {
+        /* 扩容大小为used + 1，底层实现是扩容为第一个大于等于used+1的2的幂次方 */
         return dictExpand(d, d->ht[0].used + 1);
     }
     return DICT_OK;
 }
 
 /* Our hash table capability is a power of two */
+// 返回大于等于size的第一个2的幂次方
 static unsigned long _dictNextPower(unsigned long size)
 {
     unsigned long i = DICT_HT_INITIAL_SIZE;

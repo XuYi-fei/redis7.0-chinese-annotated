@@ -1546,9 +1546,11 @@ dictType replScriptCacheDictType = {
 
 int htNeedsResize(dict *dict) {
     long long size, used;
-
+    // 哈希表大小
     size = dictSlots(dict);
+    // entry数量
     used = dictSize(dict);
+    // size > 4（哈希表初始大小）并且负载因子小于0.1
     return (size > DICT_HT_INITIAL_SIZE &&
             (used*100/size < HASHTABLE_MIN_FILL));
 }

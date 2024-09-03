@@ -44,15 +44,25 @@
  * attempted_compress: 1 bit, boolean, used for verifying during testing.
  * extra: 10 bits, free for future use; pads out the remainder of 32 bits */
 typedef struct quicklistNode {
+    // 前一个节点指针
     struct quicklistNode *prev;
+    // 后一个节点指针
     struct quicklistNode *next;
+    // ziplist指针
     unsigned char *zl;
+    // ziplist的字节大小
     unsigned int sz;             /* ziplist size in bytes */
+    // 当前ziplist中的entry的数量
     unsigned int count : 16;     /* count of items in ziplist */
+    // ziplist的编码方式，1.ZipList or 2.LZF压缩模式
     unsigned int encoding : 2;   /* RAW==1 or LZF==2 */
+    // ziplist的容器类型（预留），1.其他 or 2.ZIPLIST
     unsigned int container : 2;  /* NONE==1 or ZIPLIST==2 */
+    // 是否被解压缩。1则说明被解压了，将来要重新压缩
     unsigned int recompress : 1; /* was this node previous compressed? */
+    // 测试用
     unsigned int attempted_compress : 1; /* node can't compress; too small */
+    // 预留
     unsigned int extra : 10; /* more bits to steal for future usage */
 } quicklistNode;
 
@@ -103,12 +113,19 @@ typedef struct quicklistBookmark {
  * 'bookmakrs are an optional feature that is used by realloc this struct,
  *      so that they don't consume memory when not used. */
 typedef struct quicklist {
+    // 头节点指针
     quicklistNode *head;
+    // 尾节点指针
     quicklistNode *tail;
+    // 所有ziplist中的entry的数量
     unsigned long count;        /* total count of all entries in all ziplists */
+    // ziplists的数量，即quicklistNode的数量
     unsigned long len;          /* number of quicklistNodes */
+    // 每个ziplist的entry的数量的上限，默认值为-2
     int fill : QL_FILL_BITS;              /* fill factor for individual nodes */
+    // 用于控制ziplist的压缩，0表示不压缩
     unsigned int compress : QL_COMP_BITS; /* depth of end nodes not to compress;0=off */
+    // 内存重分配时的书签的数量及数组，一般用不到
     unsigned int bookmark_count: QL_BM_BITS;
     quicklistBookmark bookmarks[];
 } quicklist;

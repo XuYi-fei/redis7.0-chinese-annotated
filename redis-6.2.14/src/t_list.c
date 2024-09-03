@@ -223,24 +223,31 @@ robj *listTypeDup(robj *o) {
 
 /* Implements LPUSH/RPUSH/LPUSHX/RPUSHX. 
  * 'xx': push if key exists. */
+// where 是用来指明是插入到队手还是队尾的
+// xx 如果为真，则是在key存在时才插入元素
+// c 是被封装过后的客户端信息，包括了命令之类的信息
 void pushGenericCommand(client *c, int where, int xx) {
     int j;
-
+    // 判断元素大小，不能超过LIST_MAX_ITEM_SIZE
+    // argc 是参数的大小，比如lpush key 1 2 3，argc = 4
     for (j = 2; j < c->argc; j++) {
+        // 检查元素大小
         if (sdslen(c->argv[j]->ptr) > LIST_MAX_ITEM_SIZE) {
             addReplyError(c, "Element too large");
             return;
         }
     }
-
+    // 尝试找到KEY对应的list，通过db和key来找对应的list
     robj *lobj = lookupKeyWrite(c->db, c->argv[1]);
+    // 检查类型是否正确
     if (checkType(c,lobj,OBJ_LIST)) return;
+    // 检查是否为空
     if (!lobj) {
         if (xx) {
             addReply(c, shared.czero);
             return;
         }
-
+        // 如果为空，则创建新的QuickList
         lobj = createQuicklistObject();
         quicklistSetOptions(lobj->ptr, server.list_max_ziplist_size,
                             server.list_compress_depth);

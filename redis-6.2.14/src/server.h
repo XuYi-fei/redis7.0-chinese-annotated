@@ -679,12 +679,17 @@ typedef struct RedisModuleDigest {
 #define OBJ_STATIC_REFCOUNT (INT_MAX-1) /* Object allocated in the stack. */
 #define OBJ_FIRST_SPECIAL_REFCOUNT OBJ_STATIC_REFCOUNT
 typedef struct redisObject {
+    // 类型，就是redis的类型，分别是string、hash、list、set和zset
     unsigned type:4;
+    // 编码，虽然类型只有5种，但是编码有很多种（11种），比如string类型的编码有raw、int、embstr等
     unsigned encoding:4;
+    // 记录当前redis对象最近一次被访问是什么时候，用于LRU算法
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
                             * and most significant 16 bits access time). */
+    // 引用计数器，如果为0，那么这个对象就会被释放
     int refcount;
+    // 指向存放实际数据的空间
     void *ptr;
 } robj;
 
@@ -1006,18 +1011,26 @@ struct sharedObjectsStruct {
 
 /* ZSETs use a specialized version of Skiplists */
 typedef struct zskiplistNode {
+    // 节点存储的值
     sds ele;
+    // 节点分数，排序、查找用
     double score;
+    // 前一个节点指针
     struct zskiplistNode *backward;
     struct zskiplistLevel {
+        // 下一个节点指针
         struct zskiplistNode *forward;
+        // 索引跨度，即下一个节点距离当前节点的距离
         unsigned long span;
-    } level[];
+    } level[]; // 多级索引数组
 } zskiplistNode;
 
 typedef struct zskiplist {
+    // 头尾节点指针
     struct zskiplistNode *header, *tail;
+    // 节点数量
     unsigned long length;
+    // 最大的索引层级，默认是1
     int level;
 } zskiplist;
 

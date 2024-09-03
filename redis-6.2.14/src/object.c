@@ -227,8 +227,11 @@ robj *dupStringObject(const robj *o) {
 }
 
 robj *createQuicklistObject(void) {
+    // 申请内存并初始化QuickList
     quicklist *l = quicklistCreate();
+    // 创建RedisObject，type为OBJ_LIST，ptr指向quicklist
     robj *o = createObject(OBJ_LIST,l);
+    // 设置编码方式为OBJ_ENCODING_QUICKLIST
     o->encoding = OBJ_ENCODING_QUICKLIST;
     return o;
 }
